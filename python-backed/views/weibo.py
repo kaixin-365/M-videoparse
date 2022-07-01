@@ -94,6 +94,7 @@ async def weibo_location(vid: str, q: str = Query("1080p", min_length=2, max_len
                         headers={"Location": cache,
                                  "Content-Type": "video/mp4",
                                  "Cache-Control": "no-cache",
+                                 "X-Cache-used": "Yes",
                                  "Referrer-Policy": "no-referrer"})
     else:
         url = GetWeibo(vid, q)
@@ -104,7 +105,6 @@ async def weibo_location(vid: str, q: str = Query("1080p", min_length=2, max_len
                             headers={"Location": url,
                                      "Content-Type": "video/mp4",
                                      "Cache-Control": "no-cache",
-                                     "X-Cache-used": "Yes",
                                      "Referrer-Policy": "no-referrer"})
         else:
             return url

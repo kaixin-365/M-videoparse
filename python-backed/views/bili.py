@@ -1,3 +1,4 @@
+import json
 import re
 import requests
 from router.router import router
@@ -62,8 +63,8 @@ def GetBili(vid: str, p: int):
     if match_bv is not None:
         video_api_parms['bvid'] = vid
     video_api_parms['cid'] = cid
-    url = requests.get(url=video_api_url, params=video_api_parms, headers=headers, timeout=5).json()
-    url = url['data']['durl'][0]['url']
+    link_json = requests.get(url=video_api_url, params=video_api_parms, headers=headers, timeout=5).json()
+    url = link_json['data']['durl'][0]['url']
     return url
 
 
