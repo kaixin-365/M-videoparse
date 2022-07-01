@@ -5,3 +5,5 @@ Mfuns非官方视频解析工具开源仓库
 在python-backed中，存放Python后端代码
 
 在vue-web中，存放Vue前端代码，代码修改自[MfunsTool](https://github.com/ChenDoXiu/MfunsTool "MfunsTool")
+
+代码采用Mozilla公共许可证（Mozilla Public License）公开
