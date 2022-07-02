@@ -1,6 +1,5 @@
-import json
 import re
-import requests
+import httpx
 from router.router import router
 from services.redis import *
 from fastapi import Response
@@ -11,18 +10,19 @@ headers = {
     'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
     'cache-control': 'no-cache',
     'dnt': '1;',
-    'origin': 'https://m.bilibili.com',
+    #'origin': 'https://m.bilibili.com',
     'pragma': 'no-cache',
     'referer': 'https://m.bilibili.com/',
     'sec-fetch-dest': 'empty',
     'sec-fetch-mode': 'cors',
     'sec-fetch-site': 'same-site',
-    'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
+    'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) \
+Version/13.0.3 Mobile/15E148 Safari/604.1'
 }
 
-cid_url = 'http://api.bilibili.com/x/player/pagelist'
+cid_url = 'https://api.bilibili.com/x/player/pagelist'
 
-video_api_url = 'http://api.bilibili.com/x/player/playurl'
+video_api_url = 'https://api.bilibili.com/x/player/playurl'
 video_api_parms = {
     'platform': 'html5',
     'type': 'mp4',
@@ -31,40 +31,64 @@ video_api_parms = {
 }
 
 
-def GetBili(vid: str, p: int):
+async def GetBili(vid: str, p: int):
     global headers
+    global cid_url
     global video_api_url
     global video_api_parms
 
     match_av = re.match(r'av', vid, re.I)
     match_bv = re.match(r'bv', vid, re.I)
 
-    vid = vid
-    p = p
     cid_parms = {
         'bvid': f'{vid}',
         'aid': f'{vid[2:]}'
     }
+
     if match_bv is not None:
         del cid_parms['aid']
     if match_av is not None:
         del cid_parms['bvid']
 
-    try:
-        cid_json = requests.get(url=cid_url, params=cid_parms, headers=headers, timeout=5).json()
-    except:
-        return "(X_X) 服务器出错！"
-    return_code = cid_json['code']
+    async with httpx.AsyncClient() as client:
+        try:
+            cid_json = await client.get(url=cid_url, params=cid_parms, headers=headers, timeout=5)
+            cid_json = cid_json.json()
+            return_code = cid_json['code']
+        except:
+            return "(X_X) 服务器出错！1"
+
     if return_code == -404:
         return "(?_?) 视频不存在！"
+
     cid = cid_json['data'][p - 1]['cid']
+
+    # 防止上次访问的视频id残留至后面请求参数中
     if match_av is not None:
-        video_api_parms['avid'] = cid_parms['aid']
+        try:
+            del video_api_parms['bvid']
+        except:
+            pass
+        finally:
+            video_api_parms['avid'] = cid_parms['aid']
     if match_bv is not None:
-        video_api_parms['bvid'] = vid
+        try:
+            del video_api_parms['avid']
+        except:
+            pass
+        finally:
+            video_api_parms['bvid'] = vid
+
     video_api_parms['cid'] = cid
-    link_json = requests.get(url=video_api_url, params=video_api_parms, headers=headers, timeout=5).json()
-    url = link_json['data']['durl'][0]['url']
+
+    async with httpx.AsyncClient() as client:
+        try:
+            link_json = await client.get(url=video_api_url, params=video_api_parms, headers=headers, timeout=5)
+            link_json = link_json.json()
+            url = link_json['data']['durl'][0]['url']
+        except:
+            return "(X_X) 服务器出错！2"
+
     return url
 
 
@@ -88,7 +112,7 @@ async def bili_location(vid: str, p: int = 1):
                             "Referrer-Policy": "no-referrer",
                             "X-Cache-used": "Yes"})
     else:
-        url = GetBili(vid, p)
+        url = await GetBili(vid, p)
         head = url[0:8]
         if head == 'https://':
             await redis.set("bili" + f"{vid}" + f"?p={p}", url, ex=900)
