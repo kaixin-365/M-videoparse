@@ -1,9 +1,8 @@
 # Windows系统下运行会有import问题，可以参考下面方法指定其他模块
 # import sys
-# sys.path.append(r'C:\Users\Administrator\PycharmProjects\pythonProject\router')
-# sys.path.append(r'C:\Users\Administrator\PycharmProjects\pythonProject\services')
-# sys.path.append(r'C:\Users\Administrator\PycharmProjects\pythonProject\views')
-
+# sys.path.append(r'C:\Users\Administrator\Documents\GitHub\M-videoparse\python-backed\router')
+# sys.path.append(r'C:\Users\Administrator\Documents\GitHub\M-videoparse\python-backed\services')
+# sys.path.append(r'C:\Users\Administrator\Documents\GitHub\M-videoparse\python-backed\views')
 
 import uvicorn
 from fastapi import FastAPI

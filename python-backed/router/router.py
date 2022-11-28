@@ -8,3 +8,4 @@ from views.bili import *
 from views.weibo import *
 from views.lanzou import *
 from views.tieba import *
+from views.pan_123pan import *

@@ -20,9 +20,9 @@ headers = {
 Version/13.0.3 Mobile/15E148 Safari/604.1'
 }
 
-cid_url = 'https://api.bilibili.com/x/player/pagelist'
+cid_url = 'http://api.bilibili.com/x/player/pagelist'
 
-video_api_url = 'https://api.bilibili.com/x/player/playurl'
+video_api_url = 'http://api.bilibili.com/x/player/playurl'
 video_api_parms = {
     'platform': 'html5',
     'type': 'mp4',
@@ -90,7 +90,6 @@ async def GetBili(vid: str, p: int):
             return "(X_X) 服务器出错！2"
 
     return url
-
 
 @router.get('/bili/{vid}')
 async def bili_location(vid: str, p: int = 1):
