@@ -1,8 +1,8 @@
 # Windows系统下运行会有import问题，可以参考下面方法指定其他模块
-# import sys
-# sys.path.append(r'C:\Users\Administrator\Documents\GitHub\M-videoparse\python-backed\router')
-# sys.path.append(r'C:\Users\Administrator\Documents\GitHub\M-videoparse\python-backed\services')
-# sys.path.append(r'C:\Users\Administrator\Documents\GitHub\M-videoparse\python-backed\views')
+import sys
+sys.path.append(r'C:\Users\Administrator\Documents\GitHub\M-videoparse\python-backed\router')
+sys.path.append(r'C:\Users\Administrator\Documents\GitHub\M-videoparse\python-backed\services')
+sys.path.append(r'C:\Users\Administrator\Documents\GitHub\M-videoparse\python-backed\views')
 
 import uvicorn
 from fastapi import FastAPI
@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 
 from router import router
 
-file_path = "index.html"  # 后端首页文件
+file_path = "python-backed/index.html"  # 后端首页文件
 
 app = FastAPI()  # 初始化fastapi
 
