@@ -115,7 +115,7 @@ async def get_flie_url(info: dict):
 @router.get('/123pan/{ShareKey}')
 async def main1(ShareKey: str):
 
-    if len(SharePwd) != 4 or len(ShareKey) != 10:
+    if len(ShareKey) != 10:
         return '参数错误！'
 
     cache = await redis.get("123pan" + f"{ShareKey}")

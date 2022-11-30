@@ -49,7 +49,7 @@ async def tiebalocation(vid: int):
         link_url = await GetTieba(vid)
         head = link_url[0:8]
         if head == 'https://':
-            await redis.set("tieba" + f"{vid}", link_url, ex=3600)
+            await redis.set("tieba" + f"{vid}", link_url, ex=600)
             return Response(status_code=307,
                             headers={"Location": link_url,
                                      "Content-Type": "video/mp4",

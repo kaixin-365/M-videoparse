@@ -23,36 +23,13 @@ Version/13.0.3 Mobile/15E148 Safari/604.1'
 cid_url = 'http://api.bilibili.com/x/player/pagelist'
 
 video_api_url = 'http://api.bilibili.com/x/player/playurl'
-video_api_parms = {
-    'platform': 'html5',
-    'type': 'mp4',
-    'qn': '208',
-    'high_quality': '1'
-}
 
 
-async def GetBili(vid: str, p: int):
-    global headers
-    global cid_url
-    global video_api_url
-    global video_api_parms
-
-    match_av = re.match(r'av', vid, re.I)
-    match_bv = re.match(r'bv', vid, re.I)
-
-    cid_parms = {
-        'bvid': f'{vid}',
-        'aid': f'{vid[2:]}'
-    }
-
-    if match_bv is not None:
-        del cid_parms['aid']
-    if match_av is not None:
-        del cid_parms['bvid']
+async def get_av_cid(avid: str,p :int):
 
     async with httpx.AsyncClient() as client:
         try:
-            cid_json = await client.get(url=cid_url, params=cid_parms, headers=headers, timeout=5)
+            cid_json = await client.get(url=cid_url, params={'aid':avid[2:]}, headers=headers, timeout=5)
             cid_json = cid_json.json()
             return_code = cid_json['code']
         except:
@@ -61,29 +38,54 @@ async def GetBili(vid: str, p: int):
     if return_code == -404:
         return "(?_?) 视频不存在！"
 
-    cid = cid_json['data'][p - 1]['cid']
+    cid = int(cid_json['data'][p - 1]['cid'])
 
-    # 防止上次访问的视频id残留至后面请求参数中
-    if match_av is not None:
-        try:
-            del video_api_parms['bvid']
-        except:
-            pass
-        finally:
-            video_api_parms['avid'] = cid_parms['aid']
-    if match_bv is not None:
-        try:
-            del video_api_parms['avid']
-        except:
-            pass
-        finally:
-            video_api_parms['bvid'] = vid
+    return cid
 
-    video_api_parms['cid'] = cid
+async def get_bv_cid(bvid: str,p :int):
 
     async with httpx.AsyncClient() as client:
         try:
-            link_json = await client.get(url=video_api_url, params=video_api_parms, headers=headers, timeout=5)
+            cid_json = await client.get(url=cid_url, params={'bvid':bvid}, headers=headers, timeout=5)
+            cid_json = cid_json.json()
+            return_code = cid_json['code']
+        except:
+            return "(X_X) 服务器出错！1"
+
+    if return_code == -404:
+        return "(?_?) 视频不存在！"
+
+    cid = int(cid_json['data'][p - 1]['cid'])
+
+    return cid
+
+async def get_video_link(vid :str,cid: int,isav: bool):
+
+    video_api_parms_av = {
+    'platform': 'html5',
+    'cid':cid,
+    'avid':vid[2:],
+    'type': 'mp4',
+    'qn': '208',
+    'high_quality': '1'
+    }
+
+    video_api_parms_bv = {
+    'platform': 'html5',
+    'cid':cid,
+    'bvid':vid,
+    'type': 'mp4',
+    'qn': '208',
+    'high_quality': '1'
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            if isav is False:
+                link_json = await client.get(url=video_api_url,params=video_api_parms_bv,headers=headers,timeout=5)
+            else:
+                link_json = await client.get(url=video_api_url,params=video_api_parms_av,headers=headers,timeout=5)
+
             link_json = link_json.json()
             url = link_json['data']['durl'][0]['url']
         except:
@@ -93,8 +95,10 @@ async def GetBili(vid: str, p: int):
 
 @router.get('/bili/{vid}')
 async def bili_location(vid: str, p: int = 1):
+
     match_av = re.match(r'av', vid, re.I)
     match_bv = re.match(r'bv', vid, re.I)
+
     if vid is None:
         return '(?_?)请输入VID'
     if match_bv is None and match_av is None:
@@ -103,6 +107,7 @@ async def bili_location(vid: str, p: int = 1):
     cache = await redis.get("bili" + f"{vid}" + f"?p={p}")
 
     if cache is not None:
+
         return Response(status_code=307,
                         headers={
                             "Location": cache,
@@ -110,11 +115,33 @@ async def bili_location(vid: str, p: int = 1):
                             "Cache-Control": "no-cache",
                             "Referrer-Policy": "no-referrer",
                             "X-Cache-used": "Yes"})
-    else:
-        url = await GetBili(vid, p)
+
+    while match_av is not None:
+
+        cid = await get_av_cid(vid, p)
+        url = await get_video_link(vid, cid, True)
+
         head = url[0:8]
         if head == 'https://':
-            await redis.set("bili" + f"{vid}" + f"?p={p}", url, ex=900)
+            await redis.set("bili" + f"{vid}" + f"?p={p}", url, ex=600)
+            return Response(status_code=307,
+                            headers={
+                                "Location": url,
+                                "Content-Type": "video/mp4",
+                                "Cache-Control": "no-cache",
+                                "Referrer-Policy": "no-referrer"})
+        else:
+            return url
+
+    while match_bv is not None:
+
+        cid = await get_bv_cid(vid, p)
+        url = await get_video_link(vid, cid ,False)
+
+        head = url[0:8]
+        if head == 'https://':
+
+            await redis.set("bili" + f"{vid}" + f"?p={p}", url, ex=600)
             return Response(status_code=307,
                             headers={
                                 "Location": url,

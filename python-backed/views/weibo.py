@@ -117,7 +117,7 @@ async def weibo_location(vid: str, q: str = Query("1080p", min_length=2, max_len
         url = await GetWeibo(vid, q)
         head = url[0:8]
         if head == 'https://':
-            await redis.set("weibo" + f"{vid}" + f"?q={q}", url, ex=3600)
+            await redis.set("weibo" + f"{vid}" + f"?q={q}", url, ex=600)
             return Response(status_code=307,
                             headers={"Location": url,
                                      "Content-Type": "video/mp4",
