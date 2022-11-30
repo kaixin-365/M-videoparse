@@ -97,7 +97,7 @@ async def lanzou_location(url: str, p: str):
         url = await GetLanzou(url, p)
         head = url[0:8]
         if head == 'https://':
-            await redis.set("lanzou" + f"{path}", url, ex=1800)
+            await redis.set("lanzou" + f"{path}", url, ex=600)
             return Response(status_code=307,
                             headers={"Location": url,
                                      "Content-Type": "video/mp4",
@@ -133,7 +133,7 @@ async def lanzou_location1(url: str, p: str):
         url = await GetLanzou(url, p)
         head = url[0:8]
         if head == 'https://':
-            await redis.set("lanzou" + f"{path}", url, ex=1800)
+            await redis.set("lanzou" + f"{path}", url, ex=600)
             return Response(status_code=307,
                             headers={"Location": url,
                                      "Content-Type": "video/mp4",

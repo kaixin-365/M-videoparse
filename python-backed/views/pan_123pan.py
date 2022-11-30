@@ -132,7 +132,7 @@ async def main1(ShareKey: str):
         url = await get_flie_url(file_info)
         head = url[0:8]
         if head == 'https://':
-            await redis.set("123pan" + f"{ShareKey}", url, ex=1800)
+            await redis.set("123pan" + f"{ShareKey}", url, ex=600)
             return Response(status_code=307,
                             headers={"Location": url,
                                      "Content-Type": "video/mp4",
@@ -160,7 +160,7 @@ async def main(ShareKey: str,SharePwd: str):
         url = await get_flie_url(file_info)
         head = url[0:8]
         if head == 'https://':
-            await redis.set("123pan" + f"{ShareKey}", url, ex=1800)
+            await redis.set("123pan" + f"{ShareKey}", url, ex=600)
             return Response(status_code=307,
                             headers={"Location": url,
                                      "Content-Type": "video/mp4",
