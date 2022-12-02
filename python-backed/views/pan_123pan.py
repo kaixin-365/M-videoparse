@@ -9,6 +9,7 @@ headers = {
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
     'accept-encoding': 'gzip, deflate, br',
     'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'Connection': 'keep-alive',
     'dnt': '1',
     'sec-ch-ua': '"Google Chrome";v="107", "Chromium";v="107", "Not=A?Brand";v="24"',
     'sec-ch-ua-mobile': '?0',
@@ -34,6 +35,9 @@ info_api_parms = {
 }
 file_url = 'https://www.123pan.com/a/api/share/download/info'
 
+#创建HTTP长连接池
+client = httpx.AsyncClient()
+
 
 async def get_file_info(share: dict):
 
@@ -49,14 +53,12 @@ async def get_file_info(share: dict):
         except:
             pass
 
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.get(info_api,headers = headers,params=info_api_parms,timeout=5)
-            html = resp.json()
-        except:
-            return '(X_X) 获取详情出错！1'
-        finally:
-            await client.aclose()
+    try:
+        resp = await client.get(info_api,headers = headers,params=info_api_parms,timeout=5)
+        html = resp.json()
+    except:
+        return '(X_X) 获取详情出错！1'
+
     try:
         info = html['data']['InfoList'][0]
     except:
@@ -95,14 +97,11 @@ async def get_flie_url(info: dict):
 
     post_headers = dict(headers, **other_headers)
 
-    async with httpx.AsyncClient() as client:
-        try:
-            req = await client.post(file_url,data = file_url_data,headers = post_headers,timeout=5)
-            resp = req.json()
-        except:
-            return '(X_X) 获取文件详情出错！'
-        finally:
-            await client.aclose()
+    try:
+        req = await client.post(file_url,data = file_url_data,headers = post_headers,timeout=5)
+        resp = req.json()
+    except:
+        return '(X_X) 获取文件详情出错！'
 
     dev_url = urlparse(resp['data']['DownloadURL']).query
     url = urlsafe_b64decode(dev_url.split("params=")[1]).decode()
@@ -132,13 +131,14 @@ async def main1(ShareKey: str):
         url = await get_flie_url(file_info)
         head = url[0:8]
         if head == 'https://':
-            await redis.set("123pan" + f"{ShareKey}", url, ex=600)
-            return Response(status_code=307,
-                            headers={"Location": url,
-                                     "Content-Type": "video/mp4",
-                                     "Cache-Control": "no-cache",
-                                     "Referrer-Policy": "no-referrer"})
-
+            try:
+                return Response(status_code=307,
+                                headers={"Location": url,
+                                         "Content-Type": "video/mp4",
+                                         "Cache-Control": "no-cache",
+                                         "Referrer-Policy": "no-referrer"})
+            finally:
+                await redis.set("123pan" + f"{ShareKey}", url, ex=600)
 
 @router.get('/123pan/{ShareKey}/{SharePwd}')
 async def main(ShareKey: str,SharePwd: str):
@@ -160,9 +160,11 @@ async def main(ShareKey: str,SharePwd: str):
         url = await get_flie_url(file_info)
         head = url[0:8]
         if head == 'https://':
-            await redis.set("123pan" + f"{ShareKey}", url, ex=600)
-            return Response(status_code=307,
-                            headers={"Location": url,
-                                     "Content-Type": "video/mp4",
-                                     "Cache-Control": "no-cache",
-                                     "Referrer-Policy": "no-referrer"})
+            try:
+                return Response(status_code=307,
+                                headers={"Location": url,
+                                         "Content-Type": "video/mp4",
+                                         "Cache-Control": "no-cache",
+                                         "Referrer-Policy": "no-referrer"})
+            finally:
+                await redis.set("123pan" + f"{ShareKey}", url, ex=600)

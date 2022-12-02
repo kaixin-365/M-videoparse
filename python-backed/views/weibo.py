@@ -18,12 +18,15 @@ headers = {
     'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) \
 Version/13.0.3 Mobile/15E148 Safari/604.1',
     'Content-Type': 'application/x-www-form-urlencoded',
+    'Connection': 'keep-alive',
     'Origin': 'https://h5.video.weibo.com',
     'Sec-Fetch-Site': 'same-origin',
     'Sec-Fetch-Dest': 'empty',
     'Accept-Encoding': 'gzip, deflate, br',
     'Accept-Language': 'zh-CN,zh;q=0.9'
 }
+#创建HTTP长连接池
+client = httpx.AsyncClient()
 
 # aiohttp发送post请求不知道怎么避免被json格式化，只能使用httpx了
 async def GetWeibo(vid: str, q: str):
@@ -40,17 +43,12 @@ async def GetWeibo(vid: str, q: str):
     headers['Referer'] = f"https://h5.video.weibo.com/show/{vid}"
     headers['PAGE-REFERER'] = f"/show/{vid}"
 
-    async with httpx.AsyncClient() as client:
-        try:
-            resp = await client.post(api_url, params=params, headers=headers,
-                                    data=data_json, timeout=5)
-            post = resp.json()
-        except:
-            return "(X_X) 服务器出错！"
-        finally:
-            await client.aclose()
-
-    # await session.close()
+    try:
+        resp = await client.post(api_url, params=params, headers=headers,
+                                data=data_json, timeout=5)
+        post = resp.json()
+    except:
+        return "(X_X) 服务器出错！"
 
     if post is None:
         return "(?_?) 视频未公开或者不存在!"
@@ -117,11 +115,13 @@ async def weibo_location(vid: str, q: str = Query("1080p", min_length=2, max_len
         url = await GetWeibo(vid, q)
         head = url[0:8]
         if head == 'https://':
-            await redis.set("weibo" + f"{vid}" + f"?q={q}", url, ex=600)
-            return Response(status_code=307,
-                            headers={"Location": url,
-                                     "Content-Type": "video/mp4",
-                                     "Cache-Control": "no-cache",
-                                     "Referrer-Policy": "no-referrer"})
+            try:
+                return Response(status_code=307,
+                                headers={"Location": url,
+                                         "Content-Type": "video/mp4",
+                                         "Cache-Control": "no-cache",
+                                         "Referrer-Policy": "no-referrer"})
+            finally:
+                await redis.set("weibo" + f"{vid}" + f"?q={q}", url, ex=600)
         else:
             return url
