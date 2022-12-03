@@ -6,6 +6,7 @@ router = APIRouter()
 
 from views.new_bili import *
 from views.weibo import *
+from views.acfun import *
 from views.lanzou import *
 from views.tieba import *
 from views.pan_123pan import *

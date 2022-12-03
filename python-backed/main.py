@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 
 from router import router
 
-#file_path = "python-backed/index.html" 
+# file_path = "python-backed/index.html" 
 file_path = "index.html"  # 后端首页文件
 
 app = FastAPI()  # 初始化fastapi
