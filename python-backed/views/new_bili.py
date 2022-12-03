@@ -115,7 +115,6 @@ async def bili_location(vid: str, p: int = 1):
                                     "Cache-Control": "no-cache",
                                     "Referrer-Policy": "no-referrer"})
             finally:
-                client.aclose()
                 await redis.set("bili" + f"{vid}" + f"?p={p}", url, ex=600)
         else:
             return url
@@ -133,7 +132,6 @@ async def bili_location(vid: str, p: int = 1):
                                     "Cache-Control": "no-cache",
                                     "Referrer-Policy": "no-referrer"})
             finally:
-                client.aclose()
                 await redis.set("bili" + f"{vid}" + f"?p={p}", url, ex=600)
         else:
             return url
