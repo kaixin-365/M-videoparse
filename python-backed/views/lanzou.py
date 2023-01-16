@@ -1,95 +1,103 @@
-import re
-import httpx
+from re import findall
+from httpx import AsyncClient
 from router.router import router
-from services.redis import *
+from services.redis import redis
 from fastapi import Response
 
 headers = {
-    'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-    'accept-encoding': 'gzip, deflate, br',
-    'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'accept': 'text/html,*/*',
+    'accept-encoding': 'gzip',
+    'accept-language': 'zh-CN,zh;q=0.8,en;q=0.8',
     'Connection': 'keep-alive',
-    'dnt': '1',
-    'sec-ch-ua': '"Google Chrome";v="107", "Chromium";v="107", "Not=A?Brand";v="24"',
-    'sec-ch-ua-mobile': '?0',
-    'sec-ch-ua-platform': '"Windows"',
-    'sec-fetch-dest': 'document',
-    'sec-fetch-mode': 'navigate',
-    'sec-fetch-site': 'none',
-    'sec-fetch-user': '?1',
-    'upgrade-insecure-requests': '1',
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36'
+    'user-agent': 'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36'
 }
 
-#创建HTTP长连接池
-client = httpx.AsyncClient()
+html_url = 'https://m.lanzoux.com/tp/'
+post_url = 'https://m.lanzoux.com/ajaxm.php'
 
-async def GetLanzou(url: str, password: str):
-    global headers
+client = AsyncClient()
 
-    ReForHost = re.compile(r'.*lanzou.*.com')
-    ReForHtml = re.compile(r'sign.*\_c')
-
+async def get_sign(fileid: str):
     try:
-        host = re.findall(ReForHost, url)[0]
+        html = await client.get(url = html_url + fileid, headers=headers)
+        html = html.text
     except:
-        return '(!_!) 链接有误'
+        return '(X_X) 服务器获取sign出错'
+    postsign = str(findall('\'.*_c_c', html)[0]).split('\'')[1]
+    print(postsign)
+    return postsign
 
-    headers['referer'] = url
-    headers['origin'] = host
-
-    try:
-        resp = await client.get(url, headers={'user-agent': headers['user-agent']},timeout=5)
-        html = resp.text
-    except:
-        return '(X_X) 服务器访问出错'
-
-    sign = re.findall(ReForHtml, html)[0].split('=')[1]
+async def get_url(sign: str, fileid: str,password:str):
+    post_headers = {
+    'Accept': 'application/json,*/*',
+    'Accept-Encoding': 'gzip',
+    'Accept-Language': 'zh-CN,zh;q=0.8,en;q=0.8',
+    'Referer': f'https://m.lanzoux.com/tp/{fileid}',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; SM-G981B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36',
+    }
     post_data = {'action': 'downprocess', 'sign': sign, 'p': password}
-
     try:
-        resp = await client.post(url=host + '/ajaxm.php', data=post_data,
-                                 headers=headers, timeout=5)
-        url_json = resp.json()
+        req = await client.post(url=post_url, headers=post_headers, data=post_data)
+        req = req.json()
+        url = req['dom'] + '/file/' + req['url']
     except:
-        return '(X_X) 服务器发送数据出错'
+        return '(X_X) 服务器获取链接出错'
+    real_url = await client.get(url=url, headers=headers)
+    real_url = str(real_url.headers['Location']).split('&b=')[0]
+    return real_url
 
-    dev_url = url_json['dom'] + '/file/' + url_json['url']
-
+async def get_nopass_url(fileid: str):
     try:
-        resp = await client.get(url=dev_url,headers=headers, timeout=5)
-        url = resp.headers['Location']
+        html = await client.get(url = html_url + fileid, headers=headers)
+        html = html.text
     except:
-        return dev_url
+        return '(X_X) 服务器获取链接出错'
+    url_pass = str(findall("\?.*'", html)[0]).split('\'')[0]
+    url = f'https://developer.lanzoug.com/file/{url_pass}'
+    real_url = await client.get(url = url, headers=headers)
+    real_url = str(real_url.headers['Location']).split('&b=')[0]
+    return real_url
 
-    return url
+@router.get('/lanzou/{fileid}')
+async def no_pass_main(fileid: str):
+    cache = await redis.get(f"lanzou{fileid}")
+    if cache is not None:
+        return Response(status_code=307,
+                headers={"Location": cache,
+                         "Content-Type": "application/octet-stream",
+                         "Cache-Control": "no-cache",
+                         "X-Cache-used": "Yes",
+                         "Referrer-Policy": "no-referrer"})
+    
+    if cache is None:
+        url = await get_nopass_url(fileid)
+        try:
+            return Response(status_code=307,
+                headers={"Location": url,
+                         "Content-Type": "application/octet-stream",
+                         "Cache-Control": "no-cache",
+                         "X-Cache-used": "Yes",
+                         "Referrer-Policy": "no-referrer"})
+        finally:
+            await redis.set(f"lanzou{fileid}", url ,ex=600)
 
-
-@router.get('/lanzou/')
-async def lanzou_location(url: str, p: str):
-    ReForUrl = re.match(r'.*lanzou.*.com/', url)
-    ReForScheme = re.match(r'http', url)
-    if ReForUrl is False or ReForScheme is False:
-        return '(!_!) 链接有误'
-    if p is None:
-        return '(?_?) 请输入密码'
-    if url is None:
-        return '(?_?) 请输入链接'
-
-    ReForHost = re.compile(r'.*lanzou.*.com')
-    len_host = len(re.findall(ReForHost, url)[0])
-    path = url[len_host + 1:]
-
-    cache = await redis.get("lanzou" + f"{path}")
+@router.get('/lanzou/{fileid}/{password}')
+async def main(fileid:str, password:str):
+    cache = await redis.get(f"lanzou{fileid}")
     if cache is not None:
         return Response(status_code=307,
                         headers={"Location": cache,
-                                 "Content-Type": "video/mp4",
+                                 "Content-Type": "application/octet-stream",
                                  "Cache-Control": "no-cache",
                                  "X-Cache-used": "Yes",
                                  "Referrer-Policy": "no-referrer"})
-    else:
-        url = await GetLanzou(url, p)
+    
+    if cache is None:
+        try:
+            sign = await get_sign(fileid)
+            url = await get_url(sign, fileid, password)
+        except:
+            pass
         head = url[0:8]
         if head == 'https://':
             try:
@@ -99,44 +107,7 @@ async def lanzou_location(url: str, p: str):
                                         "Cache-Control": "no-cache",
                                         "Referrer-Policy": "no-referrer"})
             finally:
-                await redis.set("lanzou" + f"{path}", url, ex=600)
-        else:
-            return url
+                await redis.set(f"lanzou{fileid}", url, ex=600)
 
-@router.get('/lanzou/{p}/{url:path}')
-async def lanzou_location1(url: str, p: str):
-    ReForUrl = re.match(r'.*lanzou.*.com/', url)
-    ReForScheme = re.match(r'http', url)
-    if ReForUrl is False or ReForScheme is False:
-        return '(!_!) 链接有误'
-    if p is None:
-        return '(?_?) 请输入密码'
-    if url is None:
-        return '(?_?) 请输入链接'
 
-    ReForHost = re.compile(r'.*lanzou.*.com')
-    len_host = len(re.findall(ReForHost, url)[0])
-    path = url[len_host + 1:]
 
-    cache = await redis.get("lanzou" + f"{path}")
-    if cache is not None:
-        return Response(status_code=307,
-                        headers={"Location": cache,
-                                 "Content-Type": "video/mp4",
-                                 "Cache-Control": "no-cache",
-                                 "X-Cache-used": "Yes",
-                                 "Referrer-Policy": "no-referrer"})
-    else:
-        url = await GetLanzou(url, p)
-        head = url[0:8]
-        if head == 'https://':
-            try:
-                return Response(status_code=307,
-                                headers={"Location": url,
-                                         "Content-Type": "video/mp4",
-                                         "Cache-Control": "no-cache",
-                                         "Referrer-Policy": "no-referrer"})
-            finally:
-                await redis.set("lanzou" + f"{path}", url, ex=600)
-        else:
-            return url

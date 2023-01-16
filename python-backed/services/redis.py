@@ -2,6 +2,12 @@ import aioredis
 
 redis = aioredis.from_url("redis://localhost:6379", encoding="utf8", decode_responses=True)
 
+ac_bangumi_redis = aioredis.from_url("redis://localhost:6379", encoding="utf8", decode_responses=True, db=1)
+
+bili_cid_redis = aioredis.from_url("redis://localhost:6379", encoding="utf8", decode_responses=True, db=2)
+
+haokan_redis = aioredis.from_url("redis://localhost:6379", encoding="utf8", decode_responses=True, db=3)
+
 # 发现这些代码写在views模块里面还好些233333
 
 # async def query_weibo(vid: str, quality: str):

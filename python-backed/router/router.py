@@ -10,3 +10,4 @@ from views.acfun import *
 from views.lanzou import *
 from views.tieba import *
 from views.pan_123pan import *
+from views.haokan import *
