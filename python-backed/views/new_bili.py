@@ -11,6 +11,7 @@ headers = {
     'accept-encoding': 'gzip',
     'cache-control': 'no-cache',
     'Connection': 'keep-alive',
+    'X-Real-IP': '120.2.5.6',
     #'cookie': 'CURRENT_QUALITY=120;SESSDATA=', # 现在需要cookie 去取1080p流，否则只能取480p流
     'user-agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) \
 Version/13.0.3 Mobile/15E148 Safari/604.1'
@@ -22,7 +23,6 @@ video_api_url = 'http://api.bilibili.com/x/player/playurl'
 
 info_data = ''
 cid_cache = ''
-
 
 #创建HTTP长连接池
 client = AsyncClient(limits=Limits(keepalive_expiry=120))
@@ -39,12 +39,13 @@ async def get_cid(vid: str,p :int,isav: bool):
             cid_json = await client.get(url=cid_url, params={'bvid':vid}, headers=headers, timeout=5)
         else:
             cid_json = await client.get(url=cid_url, params={'aid':vid[2:]}, headers=headers, timeout=5)
-
         try:
             cid_json = cid_json.json()
-            info_data = cid_json['data']
         except:
             return "(X_X) 服务器获取CID出错"
+        if cid_json['code'] != 200:
+            return "(?_?) 视频状态异常"
+        info_data = cid_json['data']
         cid = int(cid_json['data'][p - 1]['cid'])
         return cid
 
@@ -86,8 +87,7 @@ async def get_video_link(vid :str,cid: int,isav: bool):
         link_json = link_json1.json()
         url = link_json['data']['durl'][0]['url']
     except:
-        return f"(X_X) 服务器获取视频链接出错"
-
+        return f"(X_X) 服务器获取视频链接出错,请刷新重试"
     return url
 
 @router.get('/bili/{vid}')
@@ -131,7 +131,7 @@ async def bili_main(vid: str, p: int = 1):
                 await redis.set(f"bili{vid}p={p}", url, ex=120)
                 await set_cid_cache(vid,p)
         else:
-            return url
-
-
-
+            try:
+                return url
+            finally:
+                await bili_cid_redis.delete(vid)
